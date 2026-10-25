@@ -18,7 +18,8 @@
     "db:copy-supabase": "tsx src/scripts/copyFromSupabase.ts",
     "user:password": "tsx src/scripts/setUserPassword.ts",
     "test:bedops": "tsx tests/bedOperations.e2e.ts",
-    "db:import-initial": "tsx src/scripts/importInitialData.ts"
+    "db:import-initial": "tsx src/scripts/importInitialData.ts",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
