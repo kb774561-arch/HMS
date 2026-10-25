@@ -62,3 +62,10 @@ export function createApp() {
   app.use(errorHandler);
   return app;
 }
+
+/**
+ * Vercel's Express preset auto-detects its entry and checks src/app.* before
+ * src/index.*, so this module's default export must be the ready app itself.
+ */
+const app = createApp();
+export default app;

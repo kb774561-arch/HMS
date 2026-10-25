@@ -1,8 +1,6 @@
-import { createApp } from "./app.js";
+import app from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./utils/logger.js";
-
-const app = createApp();
 
 // On Vercel the exported app runs as a Vercel Function; locally we listen on a port.
 if (!process.env.VERCEL) {
