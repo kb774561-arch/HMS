@@ -4,11 +4,14 @@ import { fileURLToPath } from "url";
 import compression from "compression";
 import cors from "cors";
 import express from "express";
-import helmet from "helmet";
+import helmetImport from "helmet";
 import morgan from "morgan";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { apiRouter } from "./routes/index.js";
+import { cjsDefault } from "./utils/interop.js";
+
+const helmet = cjsDefault(helmetImport);
 
 /** Built frontend (frontend/dist). When present, the API also serves the website on the same port. */
 const WEB_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../frontend/dist");
