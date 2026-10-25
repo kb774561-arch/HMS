@@ -1,0 +1,820 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["genius_pg"]
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum PermissionAction {
+  VIEW
+  ADD
+  EDIT
+  DELETE
+  EXPORT
+  PRINT
+  APPROVE
+
+  @@schema("genius_pg")
+}
+
+enum TenantStatus {
+  ACTIVE
+  NOTICE
+  VACATED
+  BLOCKED
+
+  @@schema("genius_pg")
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  BLOCKED
+
+  @@schema("genius_pg")
+}
+
+enum AllocationStatus {
+  ACTIVE
+  TRANSFERRED
+  VACATED
+  CANCELLED
+
+  @@schema("genius_pg")
+}
+
+enum InvoiceStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOIDED
+
+  @@schema("genius_pg")
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+  OTHER
+
+  @@schema("genius_pg")
+}
+
+enum PaymentStatus {
+  RECORDED
+  REVERSED
+  VOIDED
+
+  @@schema("genius_pg")
+}
+
+enum DepositTxnType {
+  COLLECTION
+  REFUND
+  DEDUCTION
+  ADJUSTMENT_TO_RENT
+
+  @@schema("genius_pg")
+}
+
+enum BedOperationType {
+  TRANSFER
+  SWAP
+
+  @@schema("genius_pg")
+}
+
+enum RentSource {
+  AUTO
+  MANUAL
+
+  @@schema("genius_pg")
+}
+
+enum ImportBatchStatus {
+  UPLOADED
+  VALIDATED
+  IMPORTED
+  FAILED
+  CANCELLED
+
+  @@schema("genius_pg")
+}
+
+// ─── Auth & Permissions ──────────────────────────────────
+
+model Role {
+  id          String   @id @default(cuid())
+  roleName    String   @unique @map("role_name")
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+  @@schema("genius_pg")
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  username           String    @unique
+  fullName           String    @map("full_name")
+  roleId             String    @map("role_id")
+  passwordHash       String    @map("password_hash")
+  isActive           Boolean   @default(true) @map("is_active")
+  mustChangePassword Boolean   @default(true) @map("must_change_password")
+  lastLoginAt        DateTime? @map("last_login_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  role                Role                     @relation(fields: [roleId], references: [id])
+  sessions            Session[]
+  permissionOverrides UserPermissionOverride[]
+  auditLogs           AuditLog[]               @relation("AuditActor")
+  paymentsRecorded    Payment[]                @relation("PaymentRecorder")
+  importBatches       ImportBatch[]
+  invoicesCreated     RentInvoice[]            @relation("InvoiceCreator")
+  invoicesAdjusted    RentInvoice[]            @relation("InvoiceAdjuster")
+  expensesCreated     Expense[]                @relation("ExpenseCreator")
+  expensesUpdated     Expense[]                @relation("ExpenseUpdater")
+  bedOperations       BedTransferHistory[]
+
+  @@index([roleId])
+  @@map("users")
+  @@schema("genius_pg")
+}
+
+model Menu {
+  id           String   @id @default(cuid())
+  menuName     String   @map("menu_name")
+  parentMenuId String?  @map("parent_menu_id")
+  routePath    String?  @map("route_path")
+  icon         String?
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  parent          Menu?                    @relation("MenuTree", fields: [parentMenuId], references: [id])
+  children        Menu[]                   @relation("MenuTree")
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+
+  @@index([parentMenuId])
+  @@index([displayOrder])
+  @@map("menus")
+  @@schema("genius_pg")
+}
+
+model RolePermission {
+  id        String           @id @default(cuid())
+  roleId    String           @map("role_id")
+  menuId    String           @map("menu_id")
+  action    PermissionAction
+  allowed   Boolean          @default(true)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, menuId, action])
+  @@map("role_permissions")
+  @@schema("genius_pg")
+}
+
+model UserPermissionOverride {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  menuId    String           @map("menu_id")
+  action    PermissionAction
+  allowed   Boolean
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, menuId, action])
+  @@map("user_permission_overrides")
+  @@schema("genius_pg")
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("sessions")
+  @@schema("genius_pg")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?  @map("actor_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+  @@schema("genius_pg")
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+  @@schema("genius_pg")
+}
+
+// ─── PG Masters ──────────────────────────────────────────
+
+model PgProperty {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  rooms Room[]
+
+  @@map("pg_properties")
+  @@schema("genius_pg")
+}
+
+model Room {
+  id                 String    @id @default(cuid())
+  pgPropertyId       String    @map("pg_property_id")
+  roomNumber         String    @map("room_number")
+  floor              String?
+  capacity           Int
+  defaultMonthlyRent Decimal   @default(0) @map("default_monthly_rent") @db.Decimal(12, 2)
+  description        String?
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  pgProperty   PgProperty       @relation(fields: [pgPropertyId], references: [id])
+  beds         Bed[]
+  tenants      Tenant[]
+  allocations  BedAllocation[]
+  reservations BedReservation[]
+
+  @@unique([pgPropertyId, roomNumber])
+  @@map("rooms")
+  @@schema("genius_pg")
+}
+
+model Bed {
+  id          String    @id @default(cuid())
+  roomId      String    @map("room_id")
+  bedCode     String    @map("bed_code")
+  bedType     String?   @map("bed_type")
+  defaultRent Decimal   @default(0) @map("default_rent") @db.Decimal(12, 2)
+  isActive    Boolean   @default(true) @map("is_active")
+  isBlocked   Boolean   @default(false) @map("is_blocked")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  room         Room                 @relation(fields: [roomId], references: [id])
+  tenants      Tenant[]
+  allocations  BedAllocation[]
+  reservations BedReservation[]
+  opsFromA     BedTransferHistory[] @relation("BedOpFromA")
+  opsToA       BedTransferHistory[] @relation("BedOpToA")
+  opsFromB     BedTransferHistory[] @relation("BedOpFromB")
+  opsToB       BedTransferHistory[] @relation("BedOpToB")
+
+  @@unique([roomId, bedCode])
+  @@map("beds")
+  @@schema("genius_pg")
+}
+
+model CollectionAccount {
+  id               String   @id @default(cuid())
+  accountName      String   @unique @map("account_name")
+  accountType      String?  @map("account_type")
+  accountHolder    String?  @map("account_holder")
+  bankName         String?  @map("bank_name")
+  accountReference String?  @map("account_reference")
+  upiId            String?  @map("upi_id")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  payments Payment[]
+  deposits SecurityDepositTransaction[]
+  expenses Expense[]
+
+  @@map("collection_accounts")
+  @@schema("genius_pg")
+}
+
+model ChargeType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  additionalCharges AdditionalCharge[]
+
+  @@map("charge_types")
+  @@schema("genius_pg")
+}
+
+// ─── Tenants ─────────────────────────────────────────────
+
+model Tenant {
+  id               String       @id @default(cuid())
+  tenantName       String       @map("tenant_name")
+  mobileNumber     String?      @map("mobile_number")
+  whatsappNumber   String?      @map("whatsapp_number")
+  parentName       String?      @map("parent_name")
+  parentNumber     String?      @map("parent_number")
+  email            String?
+  address          String?
+  emergencyContact String?      @map("emergency_contact")
+  roomId           String?      @map("room_id")
+  bedId            String?      @map("bed_id")
+  joiningDate      DateTime     @map("joining_date") @db.Date
+  leavingDate      DateTime?    @map("leaving_date") @db.Date
+  status           TenantStatus @default(ACTIVE)
+  monthlyRent      Decimal      @default(0) @map("monthly_rent") @db.Decimal(12, 2)
+  securityDeposit  Decimal      @default(0) @map("security_deposit") @db.Decimal(12, 2)
+  notes            String?
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  deletedAt        DateTime?    @map("deleted_at")
+
+  room              Room?                        @relation(fields: [roomId], references: [id])
+  bed               Bed?                         @relation(fields: [bedId], references: [id])
+  contacts          TenantContact[]
+  allocations       BedAllocation[]
+  reservations      BedReservation[]
+  rentHistory       TenantRentHistory[]
+  documents         TenantDocument[]
+  invoices          RentInvoice[]
+  payments          Payment[]
+  deposits          SecurityDepositTransaction[]
+  additionalCharges AdditionalCharge[]
+  adjustments       FinancialAdjustment[]
+  bedOperationsA    BedTransferHistory[]         @relation("BedOpStudentA")
+  bedOperationsB    BedTransferHistory[]         @relation("BedOpStudentB")
+
+  @@index([status])
+  @@index([tenantName])
+  @@index([roomId, bedId])
+  @@map("tenants")
+  @@schema("genius_pg")
+}
+
+model TenantContact {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  label       String
+  phoneNumber String?  @map("phone_number")
+  email       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_contacts")
+  @@schema("genius_pg")
+}
+
+model BedReservation {
+  id        String    @id @default(cuid())
+  tenantId  String?   @map("tenant_id")
+  roomId    String    @map("room_id")
+  bedId     String    @map("bed_id")
+  fromDate  DateTime  @map("from_date") @db.Date
+  toDate    DateTime? @map("to_date") @db.Date
+  notes     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  room   Room    @relation(fields: [roomId], references: [id])
+  bed    Bed     @relation(fields: [bedId], references: [id])
+
+  @@index([bedId, fromDate])
+  @@map("bed_reservations")
+  @@schema("genius_pg")
+}
+
+model BedAllocation {
+  id          String           @id @default(cuid())
+  tenantId    String           @map("tenant_id")
+  roomId      String           @map("room_id")
+  bedId       String           @map("bed_id")
+  startDate   DateTime         @map("start_date") @db.Date
+  endDate     DateTime?        @map("end_date") @db.Date
+  status      AllocationStatus @default(ACTIVE)
+  monthlyRent Decimal          @map("monthly_rent") @db.Decimal(12, 2)
+  notes       String?
+  /// Why this allocation started (e.g. transfer reason).
+  reason      String?
+  createdById String?          @map("created_by_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  room   Room   @relation(fields: [roomId], references: [id])
+  bed    Bed    @relation(fields: [bedId], references: [id])
+
+  @@index([tenantId])
+  @@index([bedId, status])
+  @@map("bed_allocations")
+  @@schema("genius_pg")
+}
+
+model TenantRentHistory {
+  id            String    @id @default(cuid())
+  tenantId      String    @map("tenant_id")
+  monthlyRent   Decimal   @map("monthly_rent") @db.Decimal(12, 2)
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  reason        String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_rent_history")
+  @@schema("genius_pg")
+}
+
+model TenantDocument {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  documentType String   @map("document_type")
+  fileName     String   @map("file_name")
+  storagePath  String   @map("storage_path")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_documents")
+  @@schema("genius_pg")
+}
+
+/// One row per transfer or swap. A swap links both students' bed changes.
+model BedTransferHistory {
+  id            String           @id @default(cuid())
+  operationType BedOperationType @map("operation_type")
+  studentAId    String           @map("student_a_id")
+  studentBId    String?          @map("student_b_id")
+  fromBedAId    String           @map("from_bed_a_id")
+  toBedAId      String           @map("to_bed_a_id")
+  fromBedBId    String?          @map("from_bed_b_id")
+  toBedBId      String?          @map("to_bed_b_id")
+  effectiveDate DateTime         @map("effective_date") @db.Date
+  reason        String?
+  notes         String?
+  performedById String?          @map("performed_by")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  studentA    Tenant  @relation("BedOpStudentA", fields: [studentAId], references: [id])
+  studentB    Tenant? @relation("BedOpStudentB", fields: [studentBId], references: [id])
+  fromBedA    Bed     @relation("BedOpFromA", fields: [fromBedAId], references: [id])
+  toBedA      Bed     @relation("BedOpToA", fields: [toBedAId], references: [id])
+  fromBedB    Bed?    @relation("BedOpFromB", fields: [fromBedBId], references: [id])
+  toBedB      Bed?    @relation("BedOpToB", fields: [toBedBId], references: [id])
+  performedBy User?   @relation(fields: [performedById], references: [id])
+
+  @@index([studentAId])
+  @@index([studentBId])
+  @@index([effectiveDate])
+  @@map("bed_transfer_history")
+  @@schema("genius_pg")
+}
+
+// ─── Rent & Payments ─────────────────────────────────────
+
+model RentInvoice {
+  id                String        @id @default(cuid())
+  tenantId          String        @map("tenant_id")
+  billingMonth      Int           @map("billing_month")
+  billingYear       Int           @map("billing_year")
+  invoiceDate       DateTime      @map("invoice_date") @db.Date
+  dueDate           DateTime      @map("due_date") @db.Date
+  baseRent          Decimal       @map("base_rent") @db.Decimal(12, 2)
+  additionalCharges Decimal       @default(0) @map("additional_charges") @db.Decimal(12, 2)
+  discount          Decimal       @default(0) @db.Decimal(12, 2)
+  totalPayable      Decimal       @map("total_payable") @db.Decimal(12, 2)
+  paidAmount        Decimal       @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  pendingAmount     Decimal       @map("pending_amount") @db.Decimal(12, 2)
+  status            InvoiceStatus @default(PENDING)
+  source            RentSource    @default(AUTO)
+  periodFrom        DateTime?     @map("period_from") @db.Date
+  periodTo          DateTime?     @map("period_to") @db.Date
+  /// Rent rate in force when billed.
+  rentRate          Decimal?      @map("rent_rate") @db.Decimal(12, 2)
+  /// System-calculated rent before any manual override/adjustment.
+  originalAmount    Decimal?      @map("original_amount") @db.Decimal(12, 2)
+  adjustmentReason  String?       @map("adjustment_reason")
+  notes             String?
+  createdById       String?       @map("created_by_id")
+  adjustedById      String?       @map("adjusted_by_id")
+  adjustedAt        DateTime?     @map("adjusted_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  createdBy   User?               @relation("InvoiceCreator", fields: [createdById], references: [id])
+  adjustedBy  User?               @relation("InvoiceAdjuster", fields: [adjustedById], references: [id])
+  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  items       RentInvoiceItem[]
+  allocations PaymentAllocation[]
+
+  @@unique([tenantId, billingMonth, billingYear])
+  @@index([billingYear, billingMonth])
+  @@index([status])
+  @@map("rent_invoices")
+  @@schema("genius_pg")
+}
+
+model RentInvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String  @map("invoice_id")
+  description String
+  amount      Decimal @db.Decimal(12, 2)
+  itemType    String  @map("item_type")
+
+  invoice RentInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("rent_invoice_items")
+  @@schema("genius_pg")
+}
+
+model Payment {
+  id                   String        @id @default(cuid())
+  tenantId             String        @map("tenant_id")
+  paymentDate          DateTime      @map("payment_date") @db.Date
+  amountReceived       Decimal       @map("amount_received") @db.Decimal(12, 2)
+  allocatedAmount      Decimal       @default(0) @map("allocated_amount") @db.Decimal(12, 2)
+  unallocatedAmount    Decimal       @default(0) @map("unallocated_amount") @db.Decimal(12, 2)
+  paymentMethod        PaymentMethod @map("payment_method")
+  collectionAccountId  String        @map("collection_account_id")
+  transactionReference String?       @map("transaction_reference")
+  notes                String?
+  status               PaymentStatus @default(RECORDED)
+  idempotencyKey       String?       @unique @map("idempotency_key")
+  recordedById         String?       @map("recorded_by_id")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  collectionAccount CollectionAccount   @relation(fields: [collectionAccountId], references: [id])
+  recordedBy        User?               @relation("PaymentRecorder", fields: [recordedById], references: [id])
+  allocations       PaymentAllocation[]
+  receipt           PaymentReceipt?
+  reversals         PaymentReversal[]
+
+  @@index([paymentDate])
+  @@index([tenantId])
+  @@index([collectionAccountId])
+  @@map("payments")
+  @@schema("genius_pg")
+}
+
+model PaymentAllocation {
+  id        String   @id @default(cuid())
+  paymentId String   @map("payment_id")
+  invoiceId String   @map("invoice_id")
+  amount    Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  payment Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice RentInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@unique([paymentId, invoiceId])
+  @@map("payment_allocations")
+  @@schema("genius_pg")
+}
+
+model PaymentReceipt {
+  id            String   @id @default(cuid())
+  paymentId     String   @unique @map("payment_id")
+  receiptNumber String   @unique @map("receipt_number")
+  receiptDate   DateTime @map("receipt_date") @db.Date
+  issuedAt      DateTime @default(now()) @map("issued_at")
+  isVoided      Boolean  @default(false) @map("is_voided")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_receipts")
+  @@schema("genius_pg")
+}
+
+model PaymentReversal {
+  id             String   @id @default(cuid())
+  paymentId      String   @map("payment_id")
+  reason         String
+  reversedAmount Decimal  @map("reversed_amount") @db.Decimal(12, 2)
+  reversedAt     DateTime @default(now()) @map("reversed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@map("payment_reversals")
+  @@schema("genius_pg")
+}
+
+model FinancialAdjustment {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  amount         Decimal  @db.Decimal(12, 2)
+  adjustmentType String   @map("adjustment_type")
+  reason         String?
+  effectiveDate  DateTime @map("effective_date") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("financial_adjustments")
+  @@schema("genius_pg")
+}
+
+model SecurityDepositTransaction {
+  id                  String         @id @default(cuid())
+  tenantId            String         @map("tenant_id")
+  txnType             DepositTxnType @map("txn_type")
+  txnDate             DateTime       @map("txn_date") @db.Date
+  amount              Decimal        @db.Decimal(12, 2)
+  collectionAccountId String?        @map("collection_account_id")
+  paymentMethod       PaymentMethod? @map("payment_method")
+  notes               String?
+  createdById         String?        @map("created_by_id")
+  createdAt           DateTime       @default(now()) @map("created_at")
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  collectionAccount CollectionAccount? @relation(fields: [collectionAccountId], references: [id])
+
+  @@index([tenantId])
+  @@map("security_deposit_transactions")
+  @@schema("genius_pg")
+}
+
+model AdditionalCharge {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  chargeTypeId  String   @map("charge_type_id")
+  chargeDate    DateTime @map("charge_date") @db.Date
+  amount        Decimal  @db.Decimal(12, 2)
+  paidAmount    Decimal  @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  pendingAmount Decimal  @map("pending_amount") @db.Decimal(12, 2)
+  description   String?
+  billingMonth  Int?     @map("billing_month")
+  billingYear   Int?     @map("billing_year")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  chargeType ChargeType @relation(fields: [chargeTypeId], references: [id])
+
+  @@index([tenantId])
+  @@map("additional_charges")
+  @@schema("genius_pg")
+}
+
+// ─── Expenditure ─────────────────────────────────────────
+
+model ExpenseCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  expenses Expense[]
+
+  @@map("expense_categories")
+  @@schema("genius_pg")
+}
+
+/// PG operating expense. Never deleted — voided entries keep their history.
+model Expense {
+  id                   String        @id @default(cuid())
+  expenseDate          DateTime      @map("expense_date") @db.Date
+  categoryId           String        @map("category_id")
+  description          String
+  amount               Decimal       @db.Decimal(12, 2)
+  paymentMethod        PaymentMethod @map("payment_method")
+  collectionAccountId  String        @map("collection_account_id")
+  transactionReference String?       @map("transaction_reference")
+  notes                String?
+  createdById          String?       @map("created_by_id")
+  updatedById          String?       @map("updated_by_id")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+  voidedAt             DateTime?     @map("voided_at")
+  voidedById           String?       @map("voided_by_id")
+  voidReason           String?       @map("void_reason")
+
+  category          ExpenseCategory   @relation(fields: [categoryId], references: [id])
+  collectionAccount CollectionAccount @relation(fields: [collectionAccountId], references: [id])
+  createdBy         User?             @relation("ExpenseCreator", fields: [createdById], references: [id])
+  updatedBy         User?             @relation("ExpenseUpdater", fields: [updatedById], references: [id])
+
+  @@index([expenseDate])
+  @@index([categoryId])
+  @@map("expenses")
+  @@schema("genius_pg")
+}
+
+// ─── Import ──────────────────────────────────────────────
+
+model ImportBatch {
+  id           String            @id @default(cuid())
+  fileName     String            @map("file_name")
+  status       ImportBatchStatus @default(UPLOADED)
+  uploadedById String?           @map("uploaded_by_id")
+  notes        String?
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  uploadedBy User?         @relation(fields: [uploadedById], references: [id])
+  rows       ImportRow[]
+  errors     ImportError[]
+
+  @@map("import_batches")
+  @@schema("genius_pg")
+}
+
+model ImportRow {
+  id         String   @id @default(cuid())
+  batchId    String   @map("batch_id")
+  sheetName  String   @map("sheet_name")
+  rowNumber  Int      @map("row_number")
+  rawData    Json     @map("raw_data")
+  mappedData Json?    @map("mapped_data")
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@map("import_rows")
+  @@schema("genius_pg")
+}
+
+model ImportError {
+  id        String   @id @default(cuid())
+  batchId   String   @map("batch_id")
+  sheetName String?  @map("sheet_name")
+  rowNumber Int?     @map("row_number")
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@map("import_errors")
+  @@schema("genius_pg")
+}
+
+model ReceiptSequence {
+  id        String   @id @default(cuid())
+  dateKey   String   @unique @map("date_key")
+  lastSeq   Int      @default(0) @map("last_seq")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("receipt_sequences")
+  @@schema("genius_pg")
+}

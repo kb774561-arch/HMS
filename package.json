@@ -1,0 +1,29 @@
+{
+  "name": "genius-girls-pg",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Genius Girls PG Management System \u2014 A Product by Karmatechlab",
+  "scripts": {
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "db:test": "npm run db:test --prefix backend",
+    "db:migrate": "npm run prisma:migrate --prefix backend",
+    "db:seed": "npm run prisma:seed --prefix backend",
+    "supabase:login": "npx supabase login",
+    "supabase:link": "npx supabase link --project-ref fqmzhcourqgtqbryxojl",
+    "supabase:push": "npx supabase db push",
+    "test": "npm run test --prefix backend",
+    "share:build": "npm run build --prefix frontend",
+    "share:server": "npm run dev --prefix backend",
+    "share:link": "cloudflared tunnel --url http://127.0.0.1:5000"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "author": "Karmatechlab",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "supabase": "^2.121.0"
+  }
+}

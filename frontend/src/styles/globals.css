@@ -1,0 +1,280 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Genius Girls PG design tokens — Karmatechlab-inspired violet on deep ink.
+ * Every colour in the UI comes from these variables; components never hard-code hex.
+ * Light is the base, `.dark` on <html> swaps the whole palette.
+ */
+:root {
+  color-scheme: light;
+
+  --bg: #f6f5fb;
+  --surface: #ffffff;
+  --surface-2: #f3f1fa;
+  --surface-3: #e9e5f6;
+  --fg: #17131f;
+  --fg-muted: #5b5670;
+  --fg-subtle: #6f6a85;
+  --border: #e3dfef;
+  --border-strong: #cfc8e4;
+
+  --primary: #6d28d9;
+  --primary-hover: #5b21b6;
+  --primary-fg: #ffffff;
+  --primary-text: #6d28d9;
+  --primary-soft: #f1ebfe;
+  --primary-soft-fg: #5b21b6;
+  --ring: #8b5cf6;
+
+  --success: #047857;
+  --success-soft: #e5f5ee;
+  --warning: #a16207;
+  --warning-soft: #fdf4dc;
+  --danger: #b91c1c;
+  --danger-hover: #991b1b;
+  --danger-soft: #fdecec;
+  --info: #1d4ed8;
+  --info-soft: #e7eefd;
+
+  --meter-track: #ece8f7;
+  --meter-fill: #7c3aed;
+
+  /* Chart series (validated categorical order: rent, expenditure, net) */
+  --series-1: #6250d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --chart-grid: #ebe8f3;
+
+  --sidebar: #110e1c;
+  --sidebar-2: #1a1630;
+  --sidebar-fg: #c8c2db;
+  --sidebar-fg-strong: #ffffff;
+  --sidebar-border: #241f3a;
+  --sidebar-active: rgba(139, 92, 246, 0.2);
+
+  --overlay: rgba(15, 10, 30, 0.5);
+  --shadow-sm: 0 1px 2px rgba(23, 19, 31, 0.06);
+  --shadow-md: 0 4px 16px -4px rgba(45, 25, 95, 0.12), 0 1px 3px rgba(23, 19, 31, 0.06);
+  --shadow-lg: 0 24px 48px -12px rgba(45, 25, 95, 0.28);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: #0b0912;
+  --surface: #14111e;
+  --surface-2: #1b1727;
+  --surface-3: #262136;
+  --fg: #eceaf4;
+  --fg-muted: #a7a2ba;
+  --fg-subtle: #8e89a3;
+  --border: #2a2539;
+  --border-strong: #3b3550;
+
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-fg: #ffffff;
+  --primary-text: #b69bff;
+  --primary-soft: rgba(139, 92, 246, 0.16);
+  --primary-soft-fg: #cbb8ff;
+  --ring: #a78bfa;
+
+  --success: #4ade80;
+  --success-soft: rgba(74, 222, 128, 0.12);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.12);
+  --danger: #f87171;
+  --danger-hover: #fca5a5;
+  --danger-soft: rgba(248, 113, 113, 0.13);
+  --info: #60a5fa;
+  --info-soft: rgba(96, 165, 250, 0.13);
+
+  --meter-track: #262136;
+  --meter-fill: #9f7aea;
+
+  --series-1: #9085e9;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --chart-grid: #262136;
+
+  --sidebar: #0a0811;
+  --sidebar-2: #15111f;
+  --sidebar-border: #1f1a2e;
+
+  --overlay: rgba(3, 2, 8, 0.7);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 18px -4px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.7);
+}
+
+@theme inline {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-text: var(--primary-text);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-fg: var(--primary-soft-fg);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-meter-track: var(--meter-track);
+  --color-meter-fill: var(--meter-fill);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-chart-grid: var(--chart-grid);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-2: var(--sidebar-2);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --color-sidebar-fg-strong: var(--sidebar-fg-strong);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-overlay: var(--overlay);
+
+  --shadow-card: var(--shadow-md);
+  --shadow-soft: var(--shadow-sm);
+  --shadow-pop: var(--shadow-lg);
+
+  --animate-fade-in: fade-in 150ms ease-out both;
+  --animate-drawer-in: drawer-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-drawer-left: drawer-left 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-modal-in: modal-in 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-sheet-in: sheet-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes drawer-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--fg);
+    font-feature-settings: "tnum" 0;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role="button"],
+  a[href],
+  label[for],
+  select,
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  /* Native pickers follow the theme via color-scheme; this keeps the icon visible. */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.7;
+  }
+
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--fg);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    color: #000 !important;
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
