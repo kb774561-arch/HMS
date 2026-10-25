@@ -16,7 +16,8 @@
     "test": "npm run test --prefix backend",
     "share:build": "npm run build --prefix frontend",
     "share:server": "npm run dev --prefix backend",
-    "share:link": "cloudflared tunnel --url http://127.0.0.1:5000"
+    "share:link": "cloudflared tunnel --url http://127.0.0.1:5000",
+    "vercel-build": "node -e \"console.error('\n*** Wrong Root Directory ***\nIn Vercel > Project Settings > Build and Deployment set Root Directory to backend (API project) or frontend (website project), then redeploy.\n');process.exit(1)\""
   },
   "engines": {
     "node": ">=20"
