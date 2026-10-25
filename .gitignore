@@ -22,3 +22,6 @@ backend/data/initial-data.json
 .vs/
 .vscode/
 .idea/
+
+# Values to paste into Vercel (contains secrets)
+.env.vercel
