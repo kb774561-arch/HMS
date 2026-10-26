@@ -6,6 +6,7 @@ import cors from "cors";
 import express from "express";
 import helmetImport from "helmet";
 import morgan from "morgan";
+import { createPrismaClient, disposePrisma, runWithRequestPrisma } from "./config/database.js";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { apiRouter } from "./routes/index.js";
@@ -20,6 +21,23 @@ export function createApp() {
 
   // Behind a tunnel/proxy: use X-Forwarded-For so the login rate limit is per visitor, not per tunnel.
   app.set("trust proxy", 1);
+
+  // Cloudflare Workers: Prisma + pg hang if one client/pool is reused across requests.
+  // Scope a fresh client to each request via AsyncLocalStorage.
+  if (process.env.CF_WORKER === "1") {
+    app.use((_req, res, next) => {
+      const client = createPrismaClient();
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        void disposePrisma(client);
+      };
+      res.on("finish", cleanup);
+      res.on("close", cleanup);
+      runWithRequestPrisma(client, () => next());
+    });
+  }
 
   app.use(
     helmet({

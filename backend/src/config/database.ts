@@ -1,41 +1,66 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import pg from "pg";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient;
-  pgPool?: pg.Pool;
-};
+type ClientWithPool = PrismaClient & { __ggpgPool?: pg.Pool };
 
-function createPrismaClient(): PrismaClient {
+const prismaAls = new AsyncLocalStorage<PrismaClient>();
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+
+export function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL is required for Prisma");
   }
 
-  // Reuse a single pool in long-lived Node; Workers may recreate the isolate often.
-  const pool =
-    globalForPrisma.pgPool ??
-    new pg.Pool({
-      connectionString,
-      // Workers / serverless: keep the pool tiny; Hyperdrive (optional) pools further upstream.
-      max: process.env.CF_WORKER === "1" ? 1 : 10,
-      ssl: connectionString.includes("localhost") ? undefined : { rejectUnauthorized: false },
-    });
-
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.pgPool = pool;
-  }
+  const pool = new pg.Pool({
+    connectionString,
+    // Workers: one connection per request-scoped client. Node: small pool is fine.
+    max: process.env.CF_WORKER === "1" ? 1 : 10,
+    ssl: connectionString.includes("localhost") ? undefined : { rejectUnauthorized: false },
+  });
 
   const adapter = new PrismaPg(pool);
-  return new PrismaClient({
+  const client = new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-  });
+  }) as ClientWithPool;
+  client.__ggpgPool = pool;
+  return client;
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+function getClient(): PrismaClient {
+  const scoped = prismaAls.getStore();
+  if (scoped) return scoped;
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  // Long-lived Node / Vercel: singleton. Workers should always hit ALS via middleware.
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+  return globalForPrisma.prisma;
+}
+
+/** Drop-in Prisma client — request-scoped on Cloudflare Workers, singleton elsewhere. */
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getClient() as unknown as Record<string | symbol, unknown>;
+    const value = client[prop];
+    return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(client) : value;
+  },
+});
+
+export function runWithRequestPrisma(client: PrismaClient, next: () => void): void {
+  prismaAls.run(client, next);
+}
+
+export async function disposePrisma(client: PrismaClient): Promise<void> {
+  try {
+    await client.$disconnect();
+  } finally {
+    const pool = (client as ClientWithPool).__ggpgPool;
+    if (pool) {
+      await pool.end().catch(() => undefined);
+    }
+  }
 }

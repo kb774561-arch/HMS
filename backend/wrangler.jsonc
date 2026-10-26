@@ -10,14 +10,12 @@
 	"compatibility_date": "2025-09-23",
 	"compatibility_flags": ["nodejs_compat"],
 	"workers_dev": true,
-	// Secrets (set via `wrangler secret put` or Cloudflare dashboard — never commit):
-	//   DATABASE_URL, DIRECT_URL, JWT_SECRET
-	// Optional vars can also be set as secrets.
+	// Secrets (dashboard or `npx wrangler secret put <NAME>` — never commit):
+	//   DATABASE_URL, DIRECT_URL, JWT_SECRET, FRONTEND_URL
 	"vars": {
 		"NODE_ENV": "production",
 		"APP_TIMEZONE": "Asia/Kolkata",
 		"JWT_EXPIRES_IN": "12h",
 		"CF_WORKER": "1"
 	}
-	// FRONTEND_URL must be set as a var/secret to your real frontend origin (CORS).
 }
