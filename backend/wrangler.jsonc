@@ -1,0 +1,23 @@
+/**
+ * Cloudflare Workers deploy config for Genius Girls PG API.
+ * Root directory in Cloudflare dashboard must be: backend
+ * Production branch: Development
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "genius-girls-pg-api",
+	"main": "src/worker.ts",
+	"compatibility_date": "2025-09-23",
+	"compatibility_flags": ["nodejs_compat"],
+	"workers_dev": true,
+	// Secrets (set via `wrangler secret put` or Cloudflare dashboard — never commit):
+	//   DATABASE_URL, DIRECT_URL, JWT_SECRET
+	// Optional vars can also be set as secrets.
+	"vars": {
+		"NODE_ENV": "production",
+		"APP_TIMEZONE": "Asia/Kolkata",
+		"JWT_EXPIRES_IN": "12h",
+		"CF_WORKER": "1"
+	}
+	// FRONTEND_URL must be set as a var/secret to your real frontend origin (CORS).
+}

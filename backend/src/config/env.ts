@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { z } from "zod";
 
+// Cloudflare Workers inject secrets into process.env; dotenv is a no-op without a file.
 dotenv.config();
 
 const envSchema = z.object({
@@ -17,7 +18,12 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
+  const message = `Invalid environment configuration: ${JSON.stringify(parsed.error.flatten().fieldErrors)}`;
+  console.error(message);
+  // Workers must not call process.exit — throw so the isolate reports a clear startup error.
+  if (process.env.CF_WORKER === "1") {
+    throw new Error(message);
+  }
   process.exit(1);
 }
 

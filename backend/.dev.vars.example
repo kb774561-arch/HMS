@@ -1,0 +1,11 @@
+# Copy to .dev.vars for `wrangler dev` (never commit .dev.vars).
+# Values mirror backend/.env — Wrangler does not load .env automatically.
+
+NODE_ENV=development
+CF_WORKER=1
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/genius_girls_pg
+DIRECT_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/genius_girls_pg
+APP_TIMEZONE=Asia/Kolkata
+FRONTEND_URL=http://localhost:5173
+JWT_SECRET=local-dev-secret-min-16-chars
+JWT_EXPIRES_IN=12h

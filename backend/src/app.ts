@@ -13,8 +13,7 @@ import { cjsDefault } from "./utils/interop.js";
 
 const helmet = cjsDefault(helmetImport);
 
-/** Built frontend (frontend/dist). When present, the API also serves the website on the same port. */
-const WEB_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../frontend/dist");
+const isServerlessRuntime = Boolean(process.env.VERCEL || process.env.CF_WORKER === "1");
 
 export function createApp() {
   const app = express();
@@ -39,21 +38,29 @@ export function createApp() {
       },
     }),
   );
-  // Gzip responses — the app is often served from a slow home/mobile upload link.
-  app.use(compression());
+  // Gzip / access logs — Node local/VPS only. Skip on Vercel/Workers compat layers.
+  if (!isServerlessRuntime) {
+    app.use(compression());
+    app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
+  }
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
   app.use(express.json({ limit: "2mb" }));
-  app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
 
   app.use("/api", apiRouter);
 
-  if (existsSync(path.join(WEB_DIST, "index.html"))) {
-    // Hashed build assets never change, so browsers can keep them for a year.
-    app.use("/assets", express.static(path.join(WEB_DIST, "assets"), { immutable: true, maxAge: "365d" }));
-    app.use(express.static(WEB_DIST, { index: false, maxAge: "1h" }));
-    // Client-side routes (/tenants, /rent, …) all load the single-page app.
-    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(WEB_DIST, "index.html")));
-  } else {
+  // Static SPA hosting is Node-only. Never call fileURLToPath when import.meta.url is unavailable (Workers).
+  let servedFrontend = false;
+  if (!isServerlessRuntime && typeof import.meta.url === "string" && import.meta.url.length > 0) {
+    const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../frontend/dist");
+    if (existsSync(path.join(webDist, "index.html"))) {
+      app.use("/assets", express.static(path.join(webDist, "assets"), { immutable: true, maxAge: "365d" }));
+      app.use(express.static(webDist, { index: false, maxAge: "1h" }));
+      app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(webDist, "index.html")));
+      servedFrontend = true;
+    }
+  }
+
+  if (!servedFrontend) {
     app.get("/", (_req, res) => {
       res.json({ name: "Genius Girls PG API", poweredBy: "Karmatechlab", website: "https://karmatechlab.com/" });
     });
@@ -66,6 +73,7 @@ export function createApp() {
 /**
  * Vercel's Express preset auto-detects its entry and checks src/app.* before
  * src/index.*, so this module's default export must be the ready app itself.
+ * Cloudflare Workers use src/worker.ts → httpServerHandler around this same app.
  */
 const app = createApp();
 export default app;

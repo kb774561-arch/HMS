@@ -1,7 +1,8 @@
 generator client {
-  provider      = "prisma-client-js"
-  // native = this PC; rhel-openssl-3.0.x = Vercel Functions (Amazon Linux 2023)
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  provider   = "prisma-client-js"
+  // Cloudflare Workers (and other serverless) cannot ship Prisma Rust engines.
+  // engineType=client + @prisma/adapter-pg talks to Postgres via the `pg` driver.
+  engineType = "client"
 }
 
 datasource db {
